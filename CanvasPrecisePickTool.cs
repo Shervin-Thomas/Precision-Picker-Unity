@@ -9,7 +9,8 @@ using System.Reflection;
 public static class CanvasPrecisePickTool
 {
     const float TransparentAlphaThreshold = 0.001f;
-    static bool s_isPHeld;
+    static bool s_leftCtrlHeld;
+    static bool s_backQuoteHeld;
 
     static CanvasPrecisePickTool()
     {
@@ -20,21 +21,27 @@ public static class CanvasPrecisePickTool
     {
         Event e = Event.current;
 
-        // Track whether P is currently held.
-        // We do not consume these events so Unity's normal shortcuts still work.
-        if (e.type == EventType.KeyDown && e.keyCode == KeyCode.P)
+        // Track modifier keys for activation: Left Ctrl + ` (backquote)
+        // Do not consume these events so Unity shortcuts keep working.
+        if (e.type == EventType.KeyDown)
         {
-            s_isPHeld = true;
+            if (e.keyCode == KeyCode.LeftControl)
+                s_leftCtrlHeld = true;
+            else if (e.keyCode == KeyCode.BackQuote)
+                s_backQuoteHeld = true;
         }
-        else if (e.type == EventType.KeyUp && e.keyCode == KeyCode.P)
+        else if (e.type == EventType.KeyUp)
         {
-            s_isPHeld = false;
+            if (e.keyCode == KeyCode.LeftControl)
+                s_leftCtrlHeld = false;
+            else if (e.keyCode == KeyCode.BackQuote)
+                s_backQuoteHeld = false;
         }
 
         if (e.type != EventType.MouseDown || e.button != 0)
             return;
 
-        if (!s_isPHeld)
+        if (!(s_leftCtrlHeld && s_backQuoteHeld))
             return;
 
         GameObject picked = PickTopmostVisibleUIGraphicUnderMouse(sceneView, e.mousePosition);
