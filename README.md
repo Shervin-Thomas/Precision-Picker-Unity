@@ -12,11 +12,11 @@ When UI contains overlapping panels/graphics (including transparent panels), Uni
 This tool performs hit-testing against UI `RectTransform` geometry and selects the **topmost visible UI element under the cursor**.
 
 ### How to use
-- In the **Scene** view, hold **P** and **Left Click**.
+- In the **Scene** view (and **Prefab Mode**), hold **Left Ctrl** + **`** (backquote) and **Left Click**.
 - The clicked UI element becomes the active selection.
 
 Notes:
-- The click is only “consumed” when a UI element is found.
+- The click is only “consumed” when a UI element is found, so normal Scene view navigation still works when you click empty space.
 
 ### What it selects
 - Works with most UI elements that have a `Graphic` (e.g., `Image`, `RawImage`, `Text`, `TMP` graphics, etc.).
