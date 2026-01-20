@@ -1,11 +1,15 @@
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEditor.SceneManagement;
+using System.Reflection;
+
 
 [InitializeOnLoad]
 public static class CanvasPrecisePickTool
 {
     const float TransparentAlphaThreshold = 0.001f;
+    static bool s_isPHeld;
 
     static CanvasPrecisePickTool()
     {
@@ -16,10 +20,21 @@ public static class CanvasPrecisePickTool
     {
         Event e = Event.current;
 
+        // Track whether P is currently held.
+        // We do not consume these events so Unity's normal shortcuts still work.
+        if (e.type == EventType.KeyDown && e.keyCode == KeyCode.P)
+        {
+            s_isPHeld = true;
+        }
+        else if (e.type == EventType.KeyUp && e.keyCode == KeyCode.P)
+        {
+            s_isPHeld = false;
+        }
+
         if (e.type != EventType.MouseDown || e.button != 0)
             return;
 
-        if (!e.alt)
+        if (!s_isPHeld)
             return;
 
         GameObject picked = PickTopmostVisibleUIGraphicUnderMouse(sceneView, e.mousePosition);
@@ -56,9 +71,6 @@ public static class CanvasPrecisePickTool
                 continue;
 
             Camera eventCamera = GetEventCameraForCanvas(canvas, sceneView);
-
-            if (!RectTransformUtility.RectangleContainsScreenPoint(canvasRT, mouseScreen, eventCamera))
-                continue;
 
             Graphic[] graphics = canvas.GetComponentsInChildren<Graphic>(true);
             if (graphics == null || graphics.Length == 0)
@@ -256,10 +268,57 @@ public static class CanvasPrecisePickTool
     }
     static Canvas[] FindAllCanvases()
     {
-        #if UNITY_2023_1_OR_NEWER
-            return Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        #else
-            return Object.FindObjectsOfType<Canvas>(true);
-        #endif
+        // Important: use the CURRENT STAGE so this works in Prefab Mode (Prefab Stage)
+        // and doesn't accidentally consider canvases from other loaded stages.
+        try
+        {
+            var stageHandle = StageUtility.GetCurrentStageHandle();
+            var stageType = stageHandle.GetType();
+            MethodInfo findWithBool = null;
+            MethodInfo findNoArgs = null;
+
+            MethodInfo[] methods = stageType.GetMethods(BindingFlags.Public | BindingFlags.Instance);
+            for (int i = 0; i < methods.Length; i++)
+            {
+                MethodInfo m = methods[i];
+                if (m == null)
+                    continue;
+
+                if (m.Name != "FindComponentsOfType" || !m.IsGenericMethodDefinition)
+                    continue;
+
+                ParameterInfo[] pars = m.GetParameters();
+                if (pars.Length == 1 && pars[0].ParameterType == typeof(bool))
+                    findWithBool = m;
+                else if (pars.Length == 0)
+                    findNoArgs = m;
+            }
+
+            if (findWithBool != null)
+            {
+                MethodInfo gm = findWithBool.MakeGenericMethod(typeof(Canvas));
+                Canvas[] result = gm.Invoke(stageHandle, new object[] { true }) as Canvas[];
+                if (result != null)
+                    return result;
+            }
+
+            if (findNoArgs != null)
+            {
+                MethodInfo gm = findNoArgs.MakeGenericMethod(typeof(Canvas));
+                Canvas[] result = gm.Invoke(stageHandle, null) as Canvas[];
+                if (result != null)
+                    return result;
+            }
+        }
+        catch
+        {
+            // Fall back to global search.
+        }
+
+#if UNITY_2023_1_OR_NEWER
+        return Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+#else
+        return Object.FindObjectsOfType<Canvas>(true);
+#endif
     }
 }
